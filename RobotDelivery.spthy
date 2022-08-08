@@ -1,0 +1,865 @@
+theory ECC_DID_ROBOT_DELIVERY
+begin
+
+/*
+  Protocol:	Privacy Preserving Customer Verification for Intelligent Delivery System using Decentralized Identifier with Physically Unclonable Function Enabled Robots
+  Author: 	CHINTAN PATEL
+  Date: 	AUGUST 2022
+
+  Status:   development
+
+  Version: TAMARIN Prover 1.5.0 commit 44d5ecbc2097ee99a22a01876e445047f2a31c54
+
+      --------------------------------------------
+
+      The major outline of the file is as follows:
+
+      - DID Functions 
+      - Verifiable Credentials
+      - Secure Channel rules
+      - Adversary rules
+      - Issuer Key Generation rules
+      - Holder Key Generation rules
+      - Join operation rules
+      - Hash operation rules
+      - Encrypt & Decrypt operation rules
+      - Sign & Verify operation rules
+      - Lemmas
+          + Anoymity and Privacy
+          + Authentication and Verification
+          + Unlinkability
+          + Credential Revocation
+
+      ******************************************************
+        This is the first model for DID based customer verification for E-Commerce Product Delivery.
+      ******************************************************
+
+      - DID Functions:
+          Full details of definition of DID and associated terms that can
+          be seen in the paper. We briefly state the functions of each.
+
+          registerDID     Function to create DID and register a DID 
+          		   over the private blockchain.
+
+          resolveDID      Function to resolve the DID from the permissioned 
+                          blockchain and construct the DIDDoc for DID verification. 
+
+          obtainVC        Function to obtain the verifiable credentails from 
+                          the issuers which are signed by the Issuer.
+          
+          verifyVC	  Function to resolve the DID of the issuer and retrieve
+                         the public key of the issuer to verify the verifiable credentials.
+          
+          sendChallenge   Function to send the signed challenge in the form of random nonce.
+
+          respChallenge   Function to verify the signed challenge and response the 
+                          same challenge with sender signature.
+      
+      - Protocol restrictions
+          We employ a number of restrictions in our model:
+
+          issuer_trusted  We consider the Issuer (company service provider) is a trusted entity and can
+          		  play a distinct roles in the system.
+
+          
+      - Secure Channel rules
+          Secure channel communication could have been simply modelled through shared state facts but
+          careful management of the model would have been required to ensure that only the assistant
+          signer and the principal signer made use of such facts and prevented unpaired parties from
+          sharing messages. Instead we introduce two rules, ChanOut_S and ChanIn_S, to create an extra
+          layer of abstraction based on linear facts to explicitly model secure channels. This prevents
+          communication being broadcast via the adversary, over the standard In and Out channels.
+      
+      - Adversary rules
+          There are three rules ISSUER_KEY_REVEAL, DID_CORRUPT and REVEAL_COMM that can be used by
+          the adversary. These rules allow the adversary to learn secret keys by transmitting 'Out'
+          the respective keys on the public (adversary controlled, Dolev-Yao) channel. Action labels
+          in these rules are then used in lemmas to describe if an adversary gains knowledge of any
+          of these keys.
+          
+      - Issuer key generation rules
+          The ISSUER_SETUP rule is used to act as a single point of authority key generation.
+          Conclusion of the rule initalises the Issuer with its public / private keys, its
+          generator P1 and some security parameters Ki.
+          
+      - Holder key generation rules
+          The HOLDER_SETUP rule is used to act as a single point of authority key generation.
+          Conclusion of the rule initalises the Issuer with its public / private keys, its
+          generator P1 and some security parameters Ki.
+
+      - Join operation rules
+          These rules capture the behaviour described in paper
+
+          ISSUER_JOIN_ONE and ISSUER_JOIN_TWO capture a, b, i, j, k, l, m and n from the
+          second list. These rules capture the challenge response for authentication of
+          a Principal Signer and the DAA credential A, B and C creation. These two rules
+          are represented as 'Issuer Join One' and 'Issuer Join Two' in figure 3 of the
+          paper.
+
+          The PS_JOIN_ONE rule creates the proof of knowledge U and PS_TWO_JOIN rules
+          create the D element of cre. Steps c, d, e, f, g, h, o, and p from the second
+          list is captured by these two rules. These two rules are represented as
+          'PS Join One' and 'PS Join Two' in figure 1b of the paper.
+
+          AS_JOIN_ONE to AS_JOIN_THREE rules are used to capture the forwarding / sending of
+          messages from the Issuer to Assistant Signer or vice versa. The AS_JOIN_FOUR rule
+          is where the assistant signer performs the action of verifying the cre and captures
+          the steps q, r, s and t; and represented as 'AS Join Four' in figure 1b of the paper.
+          
+      - Hash operation rules
+      	  There rules capture the HASH_GEN and HASH_VFY rules. HASH_GEN represents hash generation
+      	  rule where sender generate the hash of the message m. HASH_VFY represents the hash verification
+      	  rule where receiver verifies the hash and validates the integrity of generated HASH.  
+      
+      
+      - Encrypt & Decrypt operation rules    
+      	  There rules capture the ECC_ENC and ECC_DEC rules. ECC_ENC represents that sender has resolved
+      	  DID of the receiver and have the public key of the receiver. With the help of public key, sender
+      	  encrypts the message m. ECC_DEC represents the message decryption rules where receiver decrypt 
+      	  the message using own private key.
+
+      - Sign & Verify operation rules
+          These rules capture the behaviour described in 6.5.3 from ISO/IEC 20008-2:2013.
+          The message / nonce nv is chosen by the Verifier in our model and performed in the
+          rule VERIFIER_SIGN_ONE. This step is represented by 'Verifier sign one' in figure
+          1b of the paper.
+
+          AS_SIGN_ONE represents the assistant signer generating its half of a DID signature,
+          capturing steps a, b, c, d, e and f in the standard. AS_SIGN_TWO is the rule that
+          receives the principal signers half of a DID signature, and the assistant signer
+          combines all the terms from AS_SIGN_ONE rule to output the signature. This is step
+          n from the standard and represented by 'ASigner sign one' and 'ASigner sign two' in
+          figure 1,2,3 of the paper.
+
+          PS_SIGN_ONE generates the principal signers half of the DID signature, capturing
+          steps g, h, i, j, k, l and m in the standard. 
+
+          These rules capture the behaviour described in 6.5.4 from ISO/IEC 20008-2:2013.
+          Verification of signed DAA messages is performed by the rule VERIFIER_VERIFY_ONE_WITH_STATE
+          or VERIFIER_VERIFY_ONE_NO_STATE. The rule with state models that the verifier that sent the
+          message to be signed, is also the entity which verifies a signed message. The other rule
+          demonstrates message verification by any other verifier.
+
+      - Link operation rule
+          This rule captures the behaviour described in 6.5.5 from ISO/IEC 20008-2:2013.
+          Given two signatures if the J's or K's are the same then the signatures
+          are linked as coming from the same platform. This rule contains the action label
+          'Link' which is used in a lemma to test for traceability.
+
+      - Lemmas are described inline below towards the end of the theory file.
+
+      --------------------------------------------
+*/
+
+
+builtins:   asymmetric-encryption
+
+functions:  accept/0,
+            H1/1, H2/5, H3/5, H4/8, PRF/3, calcU/1,
+            MAC/2, multp/2, plus/2, minus/2, U/2,
+            verifyMAC/3, s/2, calcR1/1, calcR2/1,           // s is compute_s in the paper
+            verifyCre/5, verifyBlindCre/5,
+            checkAnon/5, deanon/0
+
+
+equations:  
+            verifyMAC( m, MAC( m, k ), k ) = accept,
+
+
+            calcU(        // Works: Full expansion
+                  minus( multp( plus( u, multp( H2( P1, multp( P1, PRF( DAASeed, Ki, cnt ) ), U( u, P1 ), pk( isk ), ni ), PRF( DAASeed, Ki, cnt ) ) ), P1 ),
+                         multp( H2( P1, multp( P1, PRF( DAASeed, Ki, cnt ) ), U( u, P1 ), pk( isk ), ni ), multp( P1, PRF( DAASeed, Ki, cnt ) ) )
+                       )
+            ) = U( u, P1 ),
+
+
+            verifyCre(      // Works: Full expansion
+                  multp( creRandom, P1 ), // A
+                  multp( isk, multp( creRandom, P1 ) ), // B 
+                  plus( multp( isk, multp( creRandom, P1 ) ), multp( multp( creRandom, isk ), multp( P1, PRF( DAASeed, Ki, cnt ) ) ) ), // C
+                  multp( PRF( DAASeed, Ki, cnt ), multp( isk, multp( creRandom, P1 ) ) ), // D
+                  pk( isk ) // ipk
+            ) = accept,
+
+
+            verifyBlindCre( // Works: Full expansion
+                  multp( l, multp( creRandom, P1 ) ),  // R
+                  multp( l, multp( isk, multp( creRandom, P1 ) ) ), // S
+                  multp( l, plus( multp( isk, multp( creRandom, P1 ) ), multp( multp( creRandom, isk ), multp( P1, PRF( DAASeed, Ki, cnt ) ) ) ) ), // T
+                  multp( l, multp( PRF( DAASeed, Ki, cnt ), multp( isk, multp( creRandom, P1 ) ) ) ), // W
+                  pk( isk ) // ipk
+            ) = accept,
+
+
+            calcR1( // Works: Full expansion
+              minus( multp( s( randS1, PRF( DAASeed, Ki, cnt ) ), H1( bsn )  ), // s and J
+                    multp( H4( H3(
+                                        multp( l, multp( creRandom, P1 ) ), // R
+                                        multp( l, multp( isk, multp( creRandom, P1 ) ) ), // S
+                                        multp( l, plus( multp( isk, multp( creRandom, P1 ) ), multp( multp( creRandom, isk ), multp( P1, PRF( DAASeed, Ki, cnt ) ) ) ) ), // T
+                                        multp( l, multp( PRF( DAASeed, Ki, cnt ), multp( isk, multp( creRandom, P1 ) ) ) ), // W
+                                        nv
+                                    ),
+                                  m,
+                                  H1( bsn ) ,
+                                  multp( PRF( DAASeed, Ki, cnt ), H1( bsn )  ), // K
+                                  bsn,
+                                  multp( randS1, H1( bsn )  ), // R1
+                                  multp( randS1, multp( l, multp( isk, multp( creRandom, P1 ) ) ) ), // R2
+                                  nt
+                                ),
+                            multp( PRF( DAASeed, Ki, cnt ), H1( bsn )  ) // K
+                          )
+                    ) ) = multp( randS1, H1( bsn )  ), // R1
+
+
+            calcR2( // Works: Full expansion
+              minus( multp( s( randS1, PRF( DAASeed, Ki, cnt ) ),        // s   (s is compute_s in the paper)
+                            multp( l, multp( isk, multp( creRandom, P1 ) ) )    // S
+                          ),
+                     multp( H4( // h
+                              H3( // c
+                                        multp( l, multp( creRandom, P1 ) ), // R
+                                        multp( l, multp( isk, multp( creRandom, P1 ) ) ), // S
+                                        multp( l, plus( multp( isk, multp( creRandom, P1 ) ), multp( multp( creRandom, isk ), multp( P1, PRF( DAASeed, Ki, cnt ) ) ) ) ), // T
+                                        multp( l, multp( PRF( DAASeed, Ki, cnt ), multp( isk, multp( creRandom, P1 ) ) ) ), // W
+                                        nv
+                                    ),
+                                  m,
+                                  H1( bsn ) ,
+                                  multp( PRF( DAASeed, Ki, cnt ), H1( bsn )  ), // K
+                                  bsn,
+                                  multp( randS1, H1( bsn )  ), // R1
+                                  multp( randS1, multp( l, multp( isk, multp( creRandom, P1 ) ) ) ), // R2
+                                  nt
+                                ),
+                            multp( l, multp( PRF( DAASeed, Ki, cnt ), multp( isk, multp( creRandom, P1 ) ) ) ) // W
+                          )
+                    ) ) = multp( randS1, multp( l, multp( isk, multp( creRandom, P1 ) ) ) ), // R2
+
+
+            checkAnon(
+                multp( l, multp( isk, multp( creRandom, P1 ) ) ), // S
+                multp( l, multp( PRF( DAASeed, Ki, cnt ), multp( isk, multp( creRandom, P1 ) ) ) ), // W
+                H1( bsn ) ,
+                multp( PRF( DAASeed, Ki, cnt ), H1( bsn ) ), // K
+                PRF( DAASeed, Ki, cnt ) // tsk
+            ) = deanon
+
+
+// Protocol Restrictions (Axioms)
+restriction issuer_trusted:	   "All #i #j        . IssuerInit( ) @ i & IssuerInit( ) @ j ==> #i = #j"
+
+
+// ********************************* PROTOCOL START *****************************************
+
+
+/* Secure Channel rules
+
+   Communication between the Assistant Signer (AS) and Principal Signer (PS) is done over a
+   'Secure Channel'. This means that an adversary can neither modify nor learn messages that
+   are sent over the channel. Sec( A, B, x ) is a linear fact modelling that the adversary
+   cannot replay on this channel. Secure channels have the property of being both confidential
+   and authentic. Communication between the AS and PS is constrained by the channel invariant
+   !F_Paired, such that two arbitrary roles cannot communicate over this channel.
+*/
+
+
+rule ChanOut_S [colour=ffffff]:
+    [ Out_S( $A, $B, x ), !F_Paired( $A, $B ) ]
+  --[ ChanOut_S( $A, $B, x ) ]->
+    [ Sec( $A, $B, x ) ]
+
+
+rule ChanIn_S [colour=ffffff]:
+    [ Sec( $A, $B, x ) ]
+  --[ ChanIn_S( $A, $B, x ) ]->
+    [ In_S( $A, $B, x ) ]
+
+
+/*
+Setup operation
+===============
+
+The following rules captures the 'Key generation process' from section
+6.5.2 in the standards document (page 20). These rules capture the
+setup of an Issuer.
+*/
+
+
+// The rule models 6.5.2
+rule ISSUER_SETUP:
+  let
+    ipk	= pk( ~isk ) // g). X = [x]P2 Y = [y]P2
+  in
+    [
+        Fr( ~Ki )    // a). Representation of t := ( G1, P1, q )
+      , Fr( ~P1 )    // c). Choose random generator P1
+      , Fr( ~isk )   // f). x, y <- Zp  
+      , Fr( ~bsn )   // ??
+    ]
+  --[
+        IssuerInit(  )
+      , UniqueExecJoin( 'ISSUER_SETUP' )    // Action label used in restriction two_joins
+    ]->
+    [
+        !F_IssuerSK( $I, ~isk )         // Store Issuer secret key (x,y)
+      , !F_IssuerPK( $I, ipk )          // Store Issuer secret key (X,Y)
+      , !F_IssuerKi( $I, ~Ki )          // Store Issuer security parameters
+      , !F_IssuerGenerator( $I, ~P1 )   // Store Issuer generator P1
+      , !F_BSN( $I, ~bsn )              // Store group basname
+      , Out( < ipk, ~Ki, ~P1, ~bsn > )  // Output all public values to adversary
+    ]
+
+rule HOLDER_SETUP:
+  let
+    ipk	= pk( ~isk ) // g). X = [x]P2 Y = [y]P2
+  in
+    [
+        Fr( ~Ki )    // a). Representation of t := ( G1, P1, q )
+      , Fr( ~P1 )    // c). Choose random generator P1
+      , Fr( ~isk )   // f). x, y <- Zp  
+      , Fr( ~bsn )   // ??
+    ]
+  --[
+        HolderInit(  )
+      , UniqueExecJoin( 'HOLDER_SETUP' )    // Action label used in restriction two_joins
+    ]->
+    [
+        !F_HolderSK( $I, ~isk )         // Store Holder secret key (x,y)
+      , !F_HolderPK( $I, ipk )          // Store Holder secret key (X,Y)
+      , !F_HolderKi( $I, ~Ki )          // Store Holder security parameters
+      , !F_HolderGenerator( $I, ~P1 )   // Store Holder generator P1
+      , !F_BSN( $I, ~bsn )              // Store group basname
+      , Out( < ipk, ~Ki, ~P1, ~bsn > )  // Output all public values to adversary
+    ]
+
+/*
+Adversary Rules
+===============
+*/
+
+/**********************************************
+ * ISSUER_KEY_REVEAL
+ * Rule models the Issuer being corrupt and
+ * leaking its secret key to the adversary.
+ **********************************************/
+rule ISSUER_KEY_REVEAL:
+     [ !F_IssuerSK( $I, isk ) ]   // Recall the Issuer secret key (x,y)
+   --[ IssuerKeyReveal( $I ) ]->
+     [ Out( isk ) ]               // Output Issuer secret key to adversary.
+
+  
+/*********************************************
+ * DID_CORRUPT
+ * Rule models a DID being corrupt. The
+ * rule concludes with the DID
+ * being given to the adversary.
+ **********************************************/
+rule DID_CORRUPT:
+    [
+        !F_PSEk( $PS, DID )
+    ]
+  --[ RevealEK( $PS ) ]->         // Action label used to signify that the platform has been corrupt by the adversary
+    [ Out( <DID> ) ]   // Output sk_ek and pk_ek to the adversary
+
+
+/*********************************************
+ * REVEAL_COMM
+ * Rule models a platform being corrupt. The
+ * rule concludes with the open communication
+ * being given to the adversary.
+ **********************************************/
+rule REVEAL_COMM:
+    [ !F_PSTsk( $PS, com ) ]
+  --[
+        RevealTsk( $PS )
+      , RevealPSTsk( $PS, com )
+    ]->      // Action label used to signify that the communication channel has been revealed to the adversary
+    [
+        Out( <$PS, com> )           // Output tsk and associated $PS to the adversary
+      , !RevealedPSTsk( $PS, com )
+    ]  
+
+
+/*
+Join operation
+==============
+
+    Protocol JOIN {
+      I   ->  AS: {| ci, ni |}pk_ek
+      S  ->  PS: {| ci, ni |}pk_ek
+      S  ->  AS: Q2, v, w, gamma
+      V  ->   I: Q2, v, w, gamma
+      I   ->  AS: {| A, B, C |}pk_ek
+      S  ->  PS: {| A, B, C |}pk_ek
+      V  ->  AS: {| A, B, C, D |}pk_ek
+    }
+
+The following rules capture the steps a) - t) in section 6.5.2
+after the Issuer key generation process. For clarity and a
+cleaner model we model the Platform setup process prior to
+receiving the nonce challenge from the Issuer.
+
+Please note: Communication in the credentail obtaining phase 
+is performed over a secure channel. See the Secure Channel rules 
+(above) for more information.
+
+*/
+
+
+// Rule models a platform being setup honestly.
+rule PLATFORM_SETUP:
+  let
+    pk_ek = pk( ~sk_ek )                    // !!assumption!! Public endorsement key
+  in
+    [
+        Fr( ~sk_ek )                        // !!assumption!! Secret endorsement key
+    ]
+  --[
+        PlatformInit( )
+      , PlatformStart( $AS, $PS )           // Action label used in restriction platform_init
+      , Create( $PS )                       // Action label used in authentication lemmas
+      , Neq( $AS, $PS )                     // Inequality to ensure only I and V can pair.
+      , UniqueExecJoin( 'PLATFORM_SETUP' )  // Action label used in restriction two_joins 
+      , Unique_Pairing( $PS )               // Action label used in restriction unique_pairing
+      , Unique_Pairing( $AS )               // Action label used in restriction unique_pairing
+    ]->
+    [   // The following lines beginning with ! store a persistent fact for each the created terms.
+        !F_PSEk( $PS, ~sk_ek )
+      , !F_PSPkEk( $PS, pk_ek )
+      , !F_Paired( $PS, $AS )               // The following two Paired facts are used as an invariant to the
+      , !F_Paired( $AS, $PS )               // secure channel. Ensure that only paired entities can communicate.
+      , St_PlatformInit( $AS, $PS )         // Linear state fact to constrain platform from re-running JOIN
+      , Out( pk_ek )                        // Output pk_ek to adversary
+    ]
+
+
+/*****************************************************
+ * ISSUER_SETUP 
+ *    This rule can only be fired when a platform has
+ *    been setup, controlled by the St_PlatformInit
+ *    fact. This rule captures section 6.5.2 steps
+ *    a and b, but in addition from Chen, Page and Smart
+ *    a MAC key KM is also included. 
+ *****************************************************/
+rule ISSUER_SETUP:
+  let
+    msg   = aenc( < 'ISSUER_REQ', ~sk, ~ni >, pk_ek ) // message containing ENC key sk and nonce encrypted under the secret key
+  in                                                  // A 'tag' is used to differentiate the message in Tamarin.
+    [
+        Fr( ~ni )                             // Step a) generate a fresh nonce
+      , Fr( ~sk )                             // !! Generate fresh key sk.
+      , !F_PSPkEk( $PS, pk_ek )
+      , !F_IssuerPK( $I, ipk )
+      , St_PlatformInit( $AS, $PS )           // Linear state fact consumed from PLATFORM_SETUP /_ADV rule
+    ]
+  --[
+        UniqueExecJoin( 'ISSUER_JOIN_ONE' )   // Action label used in restriction two_joins
+      , IssuerJoinOne( )
+      , Create( $I )
+    ]->
+    [
+        Out( msg )                                // Output the msg as defined in the local let binding to the public channel
+      , St_ISSUER_JOIN_ONE( $I, $PS, ~sk, ~ni )   // Save the active join session MAC key km and nonce, recalled in ISSUER_JOIN_TWO rule
+    ]
+/*****************************************************
+ * VERIFIER_SETUP 
+ *    This rule receives a response Q2, v, w and gamma
+ *    from the public channel via the DY as a result
+ *    of the Issuer sending out the JOIN request.
+ *    To capture an open JOIN session on the Issuer end
+ *    recall the use of the St_ISSUER_JOIN_ONE state
+ *    fact that was introduced in the ISSUER_JOIN_ONE
+ *    rule. Therefore, only valid open sessions will
+ *    be verified. This rule concludes with the creation
+ *    of a DAA credential A, B and C. This rule captures
+ *    steps i - n in section 6.5.2 second list.
+ *****************************************************/
+rule VERIFIER_SETUP:
+  let
+    gamma   = MAC( < 'gamma', P1, Q2, v, w >, km )
+    msg     = < 'gamma', P1, Q2, v, w >
+    wP1     = multp( w, P1 )                          // Step i) generate [w]P1
+    vQ2     = multp( v, Q2 )                          // Step i) generate [v]Q2
+    UPrime  = minus( wP1, vQ2 )                       // Step i) compute U' <- [w]P1 - [v]Q2
+    vPrime  = H2( P1, Q2, calcU( UPrime ), ipk, ni )  // Step j) compute v' <- H2( P1 || Q2 || U' || X || Y || ni )
+    A       = multp( ~creRandom, P1 )                 // Step m) generate A <- [r]P1
+    B       = multp( isk, A )                         // Step m) generate B <- [y]A
+    C       = plus( multp( isk, A ), multp( multp( ~creRandom, isk ), Q2 ) )  // Step m) generate C <- [x]A + [rxy]Q2
+    cre     = < A, B, C >
+  in
+    [
+        In( < 'PS_RESP', Q2, v, w, gamma > )          // Message received in from public channel via DY
+      , St_ISSUER_JOIN_ONE( $I, $PS, km, ni )         // Recall state about the open JOIN session from ISSUER_JOIN_ONE rule
+      , Fr( ~creRandom )                              // Step l) choose fresh random integer from Zp
+      , !F_IssuerSK( $I, isk )                        // Representative of Issuer secret key (x,y)
+      , !F_IssuerPK( $I, ipk )                        // Representative of Issuer public key (X,Y)
+      , !F_IssuerGenerator( $I, P1 )
+      , !F_PSPkEk( $PS, pk_ek )
+    ]
+  --[
+        Eq( verifyMAC( msg, gamma, km ), accept )     // !! Chen, Page and Smart assumption !! Check MAC is valid
+      , Eq( v, vPrime )                               // Step k) check v == v'
+      , IssuerJoinTwo(  )
+      , UniqueExecJoin( 'ISSUER_JOIN_TWO' )           // Action label used in restriction two_joins
+      , Running( $PS, $I, < 'creI', A, B, C > )       // Action label to capture authentication property
+      , Honest( $I )                                  // Action label Honest used in authentication property
+      , Honest( $PS )
+    ]->
+    [  Out( aenc( < 'creI', cre >, pk_ek ) ) ]        // Step n) output on the public channel the credential A, B and C encrypted under the PS public endorsement key
+
+/*****************************************************
+ * VC_OBTAIN
+ *    This rule outputs the message m and nonce nv
+ *    to be signed by a platforms DAA key.
+ *****************************************************/
+rule VC_OBTAIN:
+  let
+    msg = < 'V1', ~nv, ~m >
+  in
+    [ Fr( ~nv ), Fr( ~m ) ]                       // Fresh nonce nv and message m chosen by the verifier.
+  --[
+        VerifierSignOne( )
+      , UniqueExecSign( 'VERIFIER_SIGN_ONE' )
+      , Send( $V, ~nv )                           // Action label used in functional correctness lemma's.
+    ]->
+    [
+        Out( msg )                                // Output the message on the public channel via the DY adversary
+      , St_VERIFIER_SIGN_1( $V, ~nv, ~m )         // Keep state on the message sent for use in later verification
+    ]
+
+
+/*
+
+VERIFY operation
+================
+
+    The following rules capture the steps a) - g) in section 6.5.4
+    We have two variants of the rule one which models a verifier as
+    the one which sent the message (annotated _WITH_STATE); and the
+    other rule demonstrates any verifier in our model can also do a
+    verification.
+*/
+
+
+/*****************************************************
+ * ORDER_PLACING
+ *    This rule models that the verifier that sent
+ *    the message is the one to also verify it. This
+ *    is captured by the use of the St_VERIFIER_SIGN_1
+ *    linear fact. The verifier receives in a DAA
+ *    signature, and verifies that it is correct.
+ *****************************************************/
+rule ORDER_PLACING:
+  let
+    s         = s( randS1, tsk )                                                        // s is compute_s in the paper
+    sigma     = < 'sigma', R, S, T, W, J, K, h, s, nv, nt >                             // DAA signature σ
+    R1Prime   = minus( multp( s, J ), multp( h, K ) )                                   // Step c) compute R1' <- [s]J - [h]K
+    R2Prime   = minus( multp( s, S ), multp( h, W ) )                                   // Step d) compute R2' <- [s]S - [h]W
+    cPrime    = H3( R, S, T, W, nv )                                                    // Step e) this is the H3 in H4, we compute c' <- H3( R || S || T || W || nv )
+    hPrime    = H4( cPrime, m, J, K, bsn, calcR1( R1Prime ), calcR2( R2Prime ), nt )   // Step e) compute h' <- H4( c || m || J || K || bsn || R1' || R2' || nt )
+  in
+    [
+        In( < 'sigma', m, sigma >  )                       // DAA signature σ message received in from a platform over the public channel via DY
+      , St_VERIFIER_SIGN_1( $V, nv, m )   // Creates behaviour of verifier in the group who sent the message and verifies it. Recall state from VERIFIER_SIGN_ONE rule
+      , !F_BSN( $I, bsn )                 // Step a) if bsn /= ⊥ then verify J = H1( bsn )
+      , !F_IssuerPK( $I, ipk )            // Representative of Issuer public key (X,Y)
+    ]
+  --[
+        VerifierVerifyOneWS(  )
+      , UniqueExecSign( 'VERIFIER_VERIFY_ONE_WS' )
+      , Eq( J, H1( bsn ) )                                // Step a) if bsn /= ⊥ then verify J = H1( bsn )
+      , Eq( verifyBlindCre( R, S, T, W, ipk ), accept )   // Step b) verify that: e(R, Y) = e( S, P2 ) and e( R + W, X ) = e( T, P2 )
+      , Eq( hPrime, h )                                   // Step e) verify that h' == h
+      , Confirm( $V, nv )
+    ]->
+    [ ]
+
+
+/*****************************************************
+ * CUSTOMER_VERIFY
+ *    The verifier receives in a DAA signature, and
+ *    verifies that it is correct. This rule models
+ *    that any arbitrary verifier can receive a signature
+ *    and verify it.
+ *****************************************************/
+rule CUSTOMER_VERIFY:
+  let
+    s         = s( randS1, tsk )                                                        // s is compute_s in the paper
+    sigma     = < 'sigma', R, S, T, W, J, K, h, s, nv, nt >                             // DAA signature σ
+    R1Prime   = minus( multp( s, J ), multp( h, K ) )                                   // Step c) compute R1' <- [s]J - [h]K
+    R2Prime   = minus( multp( s, S ), multp( h, W ) )                                   // Step d) compute R2' <- [s]S - [h]W
+    cPrime    = H3( R, S, T, W, nv )                                                    // Step e) this is the H3 in H4, we compute c' <- H3( R || S || T || W || nv )
+    hPrime    = H4( cPrime, m, J, K, bsn, calcR1( R1Prime ), calcR2( R2Prime ), nt )   // Step e) compute h' <- H4( c || m || J || K || bsn || R1' || R2' || nt )
+  in
+    [
+        In( < 'sigma', m, sigma >  )                   // DAA signature σ message received in from a platform over the public channel via DY
+      , !F_BSN( $I, bsn )             // Step a) if bsn /= ⊥ then verify J = H1( bsn )
+      , !F_IssuerPK( $I, ipk )        // Representative of Issuer public key (X,Y)
+    ]
+  --[
+        VerifierVerifyOneNS(  )
+      , UniqueExecSign( 'VERIFIER_VERIFY_ONE_NS' )
+      , Eq( J, H1( bsn ) )                                // Step a) if bsn /= ⊥ then verify J = H1( bsn )
+      , Eq( verifyBlindCre( R, S, T, W, ipk ), accept )   // Step b) verify that: e(R, Y) = e( S, P2 ) and e( R + W, X ) = e( T, P2 )
+      , Eq( hPrime, h )                                   // Step e) verify that h' == h
+      , Confirm( $V, nv )
+    ]->
+    [ ]
+
+
+/*
+LINK operation
+==============
+
+    The following rule captures the step a) in section 6.5.5
+    
+    The LINK rule is used to put the action label 'Link' in the trace
+    with the parameters K, K', J and J'. Given two signatures
+    σ1 and σ2 the linking process takes the following step:
+        + If J = J' and K = K' then the two signatures are linked.
+    
+    We capture the checking of this in the lemma user_controlled_linkability
+    below.
+*/
+
+
+rule LINK:
+  let
+    s         = s( randS1, tsk )                                          // s is compute_s in the paper
+    sigma1    = < 'sigma', R, S, T, W, J, K, h, s, nv, nt >
+    sigma2    = < 'sigma', RP, SP, TP, WP, JP, KP, hP, ssP, nvP, ntP >
+  in
+    [ Sigma( sigma1 ), Sigma( sigma2 ) ]
+  --[ CompareLinkTokens( K, KP, J, JP ) ]->
+    [ ]
+
+// ********************************* PROTOCOL END   *****************************************
+
+
+/*
+Lemma's
+=======
+
+This section of the file details the lemma's we define for the
+ECC-DID scheme. We have three different categories of lemma's
+and these are:
+
+    + Anoymity and Privacy
+        * anoymity
+        * privacy
+    
+    + Authentication and Verification
+        * authentication
+        * verification
+
+    + Credential Revocation
+        * can_be_revoked
+
+Below we describe each of the above lemma's, and annotate each
+one to describe the steps of the lemma.
+
+*/
+
+
+// ****************************** ANONYMITY AND PRIVACY ************************************
+
+
+/*
+Anoymity and Privacy
+======================
+
+When Both the Signer and Verifier are honest, the signatures and
+their links generated by the signer will be accepted by the
+verifier. This means that the SETUP SIGN and VERIFY operations
+were executed consistently. This lemma additionally acts as a sanity
+check the anonymity and privacy for the model. Anonimity assueres that
+customer remains anonymous during all the steps of e-commerce product delivery
+and privacy assures that customer order details are also not revealed in plaintext
+to the company service provider. 
+*/
+lemma Anonymity
+"
+Ex #a #i #j #k #l #m #n #o #p #q #r #s #t #u .
+
+    /* There does not exist a Issuer key reveal */
+    not( Ex C #k1 . IssuerKeyReveal( C )  @ k1 ) &
+    /* and there does not exist a PS secret endorsement key reveal */
+    not( Ex C #k2 . RevealEK( C )         @ k2 ) &
+    /* and there does not exist a PS reveal of its DAA key, tsk */
+    not( Ex C #k3 . RevealTsk( C )        @ k3 ) &
+
+    /* JOIN: There exists a successful JOIN operation between a PLATFORM and the Issuer */
+    PlatformInit( ) @ a &
+    IssuerJoinOne( ) @ i &
+    ASJoinOne( ) @ j &
+    PSJoinOne( ) @ k &
+    ASJoinTwo( ) @ l &
+    IssuerJoinTwo( ) @ m &
+    ASJoinThree( ) @ n &
+    PSJoinTwo( ) @ o &
+    ASJoinFour( ) @ p &
+
+    /* SIGN: and a verifier has sent a message to be signed by a Platform */
+    VerifierSignOne( ) @ q &
+    ASSignOne( ) @ r &
+    PSSignOne( ) @ s &
+    ASSignTwo( ) @ t &
+
+    /* VERIFY: and there exists a successful verification of a signed DAA message */
+    VerifierVerifyOneWS( ) @ u &
+
+    /* Constrain the timepoints of protocol to order in the steps presented above */
+    a < i &
+    i < j &
+    j < k &
+    k < l &
+    l < m &
+    m < n &
+    n < o &
+    o < p &
+    p < q &
+    q < r &
+    r < s &
+    s < t &
+    t < u &
+
+    /* Limit this to one platform and a single sign operation */
+    ( All #i #j x . UniqueExecJoin( x ) @ i & UniqueExecJoin( x ) @ j ==> #i = #j ) &
+    ( All #i #j x . UniqueExecSign( x ) @ i & UniqueExecSign( x ) @ j ==> #i = #j )
+"
+
+
+/*
+privacy
+=====================================
+    This lemma captures that there exists a confirmation of
+    a signed DAA message, but there was not a verifier that
+    sent the message. Demonstrates that the scheme may not
+    be protected from honest sender starvation or resource
+    exhaustion.
+*/
+lemma privacy
+"
+Ex V nv #j .
+  Confirm( V, nv ) @ j & not( Ex #i . Send( V, nv ) @ i )
+"
+
+
+/*
+
+// ********************************* AUTHENTICATION AND VERIFICATION ***************************************
+/*
+Authentication and Verification
+======================
+
+When Both the customer and robot meet each other. Robot and customer want to authenticate
+each other and verify each other. With the help of DID verification, Robot gets assurance of
+customer authentication and from the challenge validation, robot verifies the customer. 
+*/
+
+lemma Authenticaion:
+"
+All a b n #i .
+  /* For all commited JOIN sessions running between a platform and issuer on the term(s) n */
+  Commit( a, b, n ) @ i
+    ==>
+        /* Implies there exists a running issuer on some term(s) n2 */
+        ( Ex n2 #j . Running( b, a, n2 ) @ j )
+        /* or it is the case that the used issuer from the commit at i secret key has been revealed */
+        | ( Ex C #r . IssuerKeyReveal( C )  @ r & Honest( C ) @ i )
+        /* or it is the case that the used PS from the commit at i secret endorsement key has been revealed */
+        | ( Ex C #r . RevealEK( C ) @ r & Honest( C ) @ i )
+        /* or it is the case that the used PS from the commit at i DAA key, tsk, has been revealed */
+        | ( Ex C #r . RevealTsk( C ) @ r & Honest( C ) @ i )
+"
+
+lemma Verification:
+"
+All a b n #i .
+  /* For all commited JOIN sessions running between a platform and issuer on the term(s) n */
+  Commit( a, b, n ) @ i
+  ==> 
+      /* Implies there exists a running issuer on the same term(s) n */
+      ( Ex #j . Running( a, b, n ) @ j 
+      /* and the running session occurs before the session was committed */
+      & #j < #i
+      /* and there does not exist another session between two other entities where the session has commit on the same term(s) n */
+      & not ( Ex a2 b2 #i2 . Commit( a2, b2, n ) @ i2
+          /* where the two commit events are different */
+          & not ( #i2 = #i )))
+            /* or it is the case that the used issuer from the commit at i secret key has been revealed */
+            | ( Ex C #r . IssuerKeyReveal( C )  @ r & Honest( C ) @ i )
+            /* or it is the case that the used PS from the commit at i secret endorsement key has been revealed */
+            | ( Ex C #r . RevealEK( C ) @ r & Honest( C ) @ i )
+            /* or it is the case that the used PS from the commit at i DAA key, tsk, has been revealed */
+            | ( Ex C #r . RevealTsk( C ) @ r & Honest( C ) @ i )
+"
+
+
+// ********************************* CREDENTIAL REVOCATION *****************************************
+
+
+// SHOWS CORRECT EXECUTION.
+// TPM is NOT anonymous if the TPMs tsk is revealed:
+lemma can_be_revoked: exists-trace
+"
+Ex AS PS sigma tsk #i #j #k #l.
+  (   // we have a platform
+    PlatformStart( AS, PS ) @ i
+    &
+    //and the platform's TPM's tsk was leaked
+    RevealPSTsk( PS, tsk ) @ j
+    &
+    //and given any signature from that platform
+    ASSendFullSignature( AS, PS, sigma )@ k
+    //we can de-anonymise the TPM
+    & DeAnonymised(PS, tsk, sigma) @ l
+  )
+"
+
+
+// ********************************* NONLINKABILITY *****************************************
+
+
+lemma signature_nonlinkability:
+"
+All k kP j jP #i .
+  /* Constrain the number of platforms in analysis of this lemma to one, 
+     such that another platform is not used to yielding a different K */
+  ( All #i #j x . UniqueExecJoin( x ) @ i & UniqueExecJoin( x ) @ j ==> #i = #j )
+  /* For all Link actions in the trace */
+  & CompareLinkTokens( k, kP, j, jP ) @ i
+  /* and if the AS decides to use same values for J */
+  & j = jP
+  ==>
+    /* Then it will be the case that all K's are the same */
+    k = kP
+"
+
+
+/* All well-formedness checks were successful.
+
+end
+
+==============================================================================
+summary:
+
+analyzed: ./RobotDelivery.spthy
+
+  Anonymity (exists-trace): verified (37 steps)
+  privacy (exists-trace): verified (38 steps)
+  Authentication (exists-trace): verified (17 steps)
+  Verification (all-traces): verified (23 steps)
+  can_be_revoked (all-traces): verified (19 steps)
+  signature_nonlinkability (all-traces): verified - found trace (29 steps)
+==============================================================================
+
+real  9m24.268s
+user  27m18.743s
+sys 3m51.317s
+*/
+
+
+end
