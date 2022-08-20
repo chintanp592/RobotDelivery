@@ -1,0 +1,56 @@
+Running Tamarin prover in Ubuntu over windows 10
+
+Install ubuntu LTS latest version from windows store. 
+Install windows powershell
+
+Run windows powershell in administrative mode
+Command : netsh interface ipv4 install 
+*Will ask for restart
+
+
+Install X Server for windows
+
+https://www.stat.ipb.ac.id/agusms/index.php/2019/01/15/how-to-run-graphical-linux-applications-on-bash-on-ubuntu-on-windows-10/
+
+
+Run ubuntu in administrative mode
+
+Install all gui needed
+https://docs.microsoft.com/en-us/windows/wsl/tutorials/gui-apps
+
+To update bashrc 
+command : sudo nano .bashrc
+Add line : DISPLAY=127.0.0.1:0.0 ; export DISPLAY
+Check source : source .bashrc [Must not return any error]
+
+Install Firefox in ubuntu
+sudo apt install firefox
+
+Tamarin prover install : 
+
+https://tamarin-prover.github.io/manual/book/002_installation.html
+
+
+Install Homebrew on Linux
+
+sudo apt-get install build-essential curl file git
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+test -d ~/.linuxbrew && eval "$(~/.linuxbrew/bin/brew shellenv)"
+test -d /home/linuxbrew/.linuxbrew && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+test -r ~/.bash_profile && echo "eval \"\$($(brew --prefix)/bin/brew shellenv)\"" >> ~/.bash_profile
+echo "eval \"\$($(brew --prefix)/bin/brew shellenv)\"" >> ~/.profile
+
+Install Tamarin Prover using brew
+
+brew install tamarin-prover/tap/tamarin-prover
+brew install tamarin-prover/tap/maude graphviz haskell-stack
+git clone https://github.com/tamarin-prover/tamarin-prover.git
+
+
+Running :
+
+Start ubuntu app and to run tamarin server in ubuntu
+command : tamarin-prover interactive .
+
+Open new ubuntu app
+Command : firefox
